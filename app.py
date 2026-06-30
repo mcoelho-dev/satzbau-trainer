@@ -153,6 +153,64 @@ def stats():
 def stats_page():
     return render_template("stats.html")
 
+from core import (
+    get_weighted_exercise, get_exercise_by_id, shuffle_chunks,
+    check_word_order_answer, check_text_answer, record_attempt,
+    get_pattern_stats, get_overall_stats,
+    list_exercise_types, add_exercise, get_type_counts,
+    list_exercises, update_exercise, delete_exercise,
+    get_daily_progress, get_heatmap_data,
+    get_setting, set_setting
+)
+
+
+@app.route("/api/daily-progress")
+def daily_progress():
+    return jsonify(get_daily_progress(DB_PATH))
+
+
+@app.route("/api/heatmap")
+def heatmap():
+    return jsonify(get_heatmap_data(DB_PATH))
+
+
+@app.route("/api/settings", methods=["GET"])
+def get_settings():
+    return jsonify({
+        "daily_goal": get_setting(DB_PATH, "daily_goal", "20")
+    })
+
+
+@app.route("/api/settings", methods=["POST"])
+def post_settings():
+    body = request.get_json()
+    goal = body.get("daily_goal")
+    if goal is not None:
+        set_setting(DB_PATH, "daily_goal", str(int(goal)))
+    return jsonify({"status": "saved"})
+
+@app.route("/exercises")
+def exercises_page():
+    return render_template("exercises.html")
+
+@app.route("/api/exercises")
+def get_exercises():
+    type_key = request.args.get("type")
+    return jsonify(list_exercises(DB_PATH, type_key))
+
+@app.route("/api/exercises/<int:exercise_id>", methods=["PUT"])
+def put_exercise(exercise_id):
+    body = request.get_json()
+    data = body.get("data")
+    if not data:
+        return jsonify({"error": "Missing data"}), 400
+    update_exercise(DB_PATH, exercise_id, data)
+    return jsonify({"status": "updated"})
+
+@app.route("/api/exercises/<int:exercise_id>", methods=["DELETE"])
+def del_exercise(exercise_id):
+    delete_exercise(DB_PATH, exercise_id)
+    return jsonify({"status": "deleted"})
 
 if __name__ == "__main__":
     app.run(debug=True)

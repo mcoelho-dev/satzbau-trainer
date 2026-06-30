@@ -22,19 +22,27 @@
       border-radius: 16px;
       padding: 2rem;
       width: 100%;
-      max-width: 640px;
+      max-width: 720px;
       box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+      height: fit-content;
     }
 
-    h1 { font-size: 1.25rem; font-weight: 600; margin-bottom: 0.25rem; }
+    .page-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 0.25rem;
+    }
 
-    .back {
-      display: inline-block;
+    h1 { font-size: 1.25rem; font-weight: 600; }
+
+    .meta {
+      font-size: 0.8rem;
+      color: #888;
       margin-bottom: 1.5rem;
-      font-size: 0.85rem;
-      color: #666;
-      text-decoration: none;
     }
+
+    .meta a { color: #4455cc; }
 
     .overall {
       background: #f5f4f0;
@@ -49,16 +57,110 @@
     .overall .value { font-size: 1.4rem; font-weight: 600; }
     .overall .label { font-size: 0.75rem; color: #888; margin-top: 2px; }
 
+    .section-title {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #999;
+      margin-bottom: 0.6rem;
+    }
+
+    .daily-bar-bg {
+      background: #eee;
+      border-radius: 8px;
+      height: 12px;
+      width: 100%;
+      overflow: hidden;
+      margin-bottom: 0.4rem;
+    }
+
+    .daily-bar-fill {
+      height: 100%;
+      border-radius: 8px;
+      background: #1a1a1a;
+      transition: width 0.4s ease;
+    }
+
+    .daily-bar-fill.reached { background: #2a7a4b; }
+
+    .daily-meta {
+      font-size: 0.8rem;
+      color: #888;
+      margin-bottom: 1.5rem;
+    }
+
+    .streak-row {
+      display: flex;
+      gap: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .streak-box {
+      flex: 1;
+      background: #f5f4f0;
+      border-radius: 10px;
+      padding: 0.75rem 1rem;
+      text-align: center;
+    }
+
+    .streak-box .value { font-size: 1.6rem; font-weight: 700; }
+    .streak-box .label { font-size: 0.75rem; color: #888; }
+
+    .heatmap-wrap {
+      overflow-x: auto;
+      margin-bottom: 1.5rem;
+    }
+
+    .heatmap {
+      display: flex;
+      gap: 3px;
+    }
+
+    .heatmap-col {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .heatmap-cell {
+      width: 12px;
+      height: 12px;
+      border-radius: 2px;
+      background: #eee;
+      position: relative;
+    }
+
+    .heatmap-cell[data-level="1"] { background: #c6e48b; }
+    .heatmap-cell[data-level="2"] { background: #7bc96f; }
+    .heatmap-cell[data-level="3"] { background: #239a3b; }
+    .heatmap-cell[data-level="4"] { background: #196127; }
+
+    .heatmap-cell:hover::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #1a1a1a;
+      color: #fff;
+      font-size: 0.7rem;
+      padding: 3px 7px;
+      border-radius: 4px;
+      white-space: nowrap;
+      pointer-events: none;
+      z-index: 10;
+    }
+
     table { width: 100%; border-collapse: collapse; }
 
     th, td {
       text-align: left;
       padding: 0.6rem 0.5rem;
-      font-size: 0.9rem;
+      font-size: 0.85rem;
       border-bottom: 1px solid #eee;
     }
 
-    th { font-size: 0.75rem; color: #999; text-transform: uppercase; }
+    th { font-size: 0.7rem; color: #999; text-transform: uppercase; }
 
     .bar-bg {
       background: #eee;
@@ -71,54 +173,234 @@
     .bar-fill { background: #1a1a1a; height: 100%; }
 
     .empty { color: #999; font-size: 0.9rem; text-align: center; padding: 2rem 0; }
+
+    .goal-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 1.5rem;
+    }
+
+    .goal-input {
+      width: 70px;
+      padding: 0.4rem 0.6rem;
+      border: 1px solid #d0cec8;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      text-align: center;
+    }
+
+    .btn-save-goal {
+      padding: 0.4rem 1rem;
+      border-radius: 8px;
+      border: none;
+      background: #1a1a1a;
+      color: #fff;
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+
+    .goal-feedback { font-size: 0.8rem; color: #2a7a4b; }
   </style>
 </head>
 <body>
 <div class="card">
-  <a class="back" href="/">← Back to trainer</a>
-  <h1>Your progress</h1>
+  <div class="page-header">
+    <h1>Your progress</h1>
+    <a href="/" style="font-size:0.85rem; color:#666; text-decoration:none;">← Back</a>
+  </div>
+  <p class="meta">Track your accuracy and study habit.</p>
 
   <div id="content">Loading...</div>
 </div>
 
 <script>
+  let heatmapData = [];
+  let currentYear = new Date().getFullYear();
+
   async function loadStats() {
-    const res  = await fetch("/api/stats");
-    const data = await res.json();
+    const [statsRes, dailyRes, heatmapRes, settingsRes] = await Promise.all([
+      fetch("/api/stats"),
+      fetch("/api/daily-progress"),
+      fetch("/api/heatmap"),
+      fetch("/api/settings"),
+    ]);
+
+    const stats    = await statsRes.json();
+    const daily    = await dailyRes.json();
+    const heatmap  = await heatmapRes.json();
+    const settings = await settingsRes.json();
+
     const content = document.getElementById("content");
 
-    if (data.overall.total_attempts === 0) {
-      content.innerHTML = '<p class="empty">No attempts yet — go practice some sentences!</p>';
+    if (stats.overall.total_attempts === 0) {
+      content.innerHTML = `<p class="empty">No attempts yet — go practice some sentences!</p>`;
       return;
     }
 
-    let html = `
+    const pct     = Math.min(100, Math.round((daily.today / daily.goal) * 100));
+    const reached = daily.goal_reached;
+
+    content.innerHTML = `
       <div class="overall">
-        <div><div class="value">${data.overall.total_attempts}</div><div class="label">Attempts</div></div>
-        <div><div class="value">${data.overall.correct_attempts}</div><div class="label">Correct</div></div>
-        <div><div class="value">${data.overall.accuracy}%</div><div class="label">Accuracy</div></div>
+        <div><div class="value">${stats.overall.total_attempts}</div><div class="label">Attempts</div></div>
+        <div><div class="value">${stats.overall.correct_attempts}</div><div class="label">Correct</div></div>
+        <div><div class="value">${stats.overall.accuracy}%</div><div class="label">Accuracy</div></div>
       </div>
-      <table>
-        <thead>
-          <tr><th>Pattern</th><th>Accuracy</th><th>Attempts</th></tr>
-        </thead>
-        <tbody>
+
+      <p class="section-title">Daily goal</p>
+      <div class="daily-bar-bg">
+        <div class="daily-bar-fill ${reached ? 'reached' : ''}" style="width:${pct}%"></div>
+      </div>
+      <p class="daily-meta">${daily.today} / ${daily.goal} exercises today${reached ? ' ✓' : ''}</p>
+
+      <div class="streak-row">
+        <div class="streak-box">
+          <div class="value">${daily.streak}</div>
+          <div class="label">Current streak</div>
+        </div>
+        <div class="streak-box">
+          <div class="value">${daily.longest}</div>
+          <div class="label">Longest streak</div>
+        </div>
+      </div>
+
+      <p class="section-title" style="margin-bottom:8px;">Activity</p>
+      <div style="display:flex; align-items:center; gap:12px; margin-bottom:8px;">
+        <button onclick="changeYear(-1)" style="background:none; border:none; font-size:1.2rem; cursor:pointer; color:#666; padding:0;">‹</button>
+        <span id="heatmap-year-label" style="font-size:0.85rem; font-weight:600; color:#1a1a1a;"></span>
+        <button onclick="changeYear(1)"  style="background:none; border:none; font-size:1.2rem; cursor:pointer; color:#666; padding:0;">›</button>
+      </div>
+      <div class="heatmap-wrap">
+        <div id="heatmap-container"></div>
+      </div>
+
+      <p class="section-title">Daily goal setting</p>
+      <div class="goal-row">
+        <input class="goal-input" type="number" id="goal-input" min="1" max="200" value="${settings.daily_goal}" />
+        <button class="btn-save-goal" onclick="saveGoal()">Save</button>
+        <span class="goal-feedback" id="goal-feedback"></span>
+      </div>
+
+      <p class="section-title">Accuracy by pattern</p>
+      ${buildPatternTable(stats.patterns)}
     `;
 
-    data.patterns.forEach(p => {
-      html += `
-        <tr>
-          <td>${p.pattern}</td>
-          <td>
-            <div class="bar-bg"><div class="bar-fill" style="width:${p.accuracy}%"></div></div>
-          </td>
-          <td>${p.correct_attempts}/${p.total_attempts}</td>
-        </tr>
-      `;
+    heatmapData = heatmap;
+    currentYear = new Date().getFullYear();
+    buildHeatmap(heatmapData, currentYear);
+  }
+
+  function buildPatternTable(patterns) {
+    if (!patterns || patterns.length === 0) {
+      return `<p class="empty">No pattern data yet.</p>`;
+    }
+
+    const rows = patterns.map(p => `
+      <tr>
+        <td>${p.exercise_type}</td>
+        <td>${p.pattern || "—"}</td>
+        <td>
+          <div class="bar-bg">
+            <div class="bar-fill" style="width:${p.accuracy}%"></div>
+          </div>
+        </td>
+        <td>${p.correct_attempts}/${p.total_attempts}</td>
+      </tr>
+    `).join("");
+
+    return `
+      <table>
+        <thead>
+          <tr><th>Type</th><th>Pattern</th><th>Accuracy</th><th>Attempts</th></tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    `;
+  }
+
+  function buildHeatmap(data, year) {
+    const countMap = {};
+    data.forEach(d => { countMap[d.day] = d.count; });
+
+    document.getElementById("heatmap-year-label").textContent = year;
+
+    const today  = new Date();
+    const jan1   = new Date(year, 0, 1);
+    const dec31  = new Date(year, 11, 31);
+    const endDay = year === today.getFullYear() ? today : dec31;
+
+    const start = new Date(jan1);
+    while (start.getDay() !== 0) start.setDate(start.getDate() - 1);
+
+    const yearData = data.filter(d => d.day.startsWith(year));
+    const max      = Math.max(...yearData.map(d => d.count), 1);
+
+    const container = document.getElementById("heatmap-container");
+    container.innerHTML = "";
+    const heatmap = document.createElement("div");
+    heatmap.className = "heatmap";
+
+    let current = new Date(start);
+    while (current <= endDay) {
+      const col = document.createElement("div");
+      col.className = "heatmap-col";
+
+      for (let d = 0; d < 7; d++) {
+        const dateStr  = current.toISOString().split("T")[0];
+        const inYear   = current.getFullYear() === year;
+        const isFuture = current > today;
+        const count    = (!inYear || isFuture) ? 0 : (countMap[dateStr] || 0);
+
+        const level = !inYear || isFuture ? 0
+                    : count === 0         ? 0
+                    : count <= max * 0.25 ? 1
+                    : count <= max * 0.5  ? 2
+                    : count <= max * 0.75 ? 3 : 4;
+
+        const div = document.createElement("div");
+        div.className       = "heatmap-cell";
+        div.dataset.count   = count;
+        div.dataset.level   = inYear && !isFuture ? level : 0;
+        div.dataset.tooltip = inYear && !isFuture
+          ? `${dateStr}: ${count} exercise${count !== 1 ? "s" : ""}`
+          : "";
+        if (!inYear || isFuture) div.style.opacity = "0.3";
+
+        col.appendChild(div);
+        current.setDate(current.getDate() + 1);
+      }
+
+      heatmap.appendChild(col);
+    }
+
+    container.appendChild(heatmap);
+  }
+
+  function changeYear(delta) {
+    const thisYear = new Date().getFullYear();
+    const newYear  = currentYear + delta;
+    if (newYear > thisYear) return;
+    currentYear = newYear;
+    buildHeatmap(heatmapData, currentYear);
+  }
+
+  async function saveGoal() {
+    const val = parseInt(document.getElementById("goal-input").value);
+    if (!val || val < 1) return;
+
+    const res = await fetch("/api/settings", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ daily_goal: val }),
     });
 
-    html += "</tbody></table>";
-    content.innerHTML = html;
+    if (res.ok) {
+      document.getElementById("goal-feedback").textContent = "Saved!";
+      setTimeout(() => {
+        document.getElementById("goal-feedback").textContent = "";
+      }, 2000);
+    }
   }
 
   loadStats();

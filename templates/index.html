@@ -248,6 +248,16 @@
     <h1>Satzbau Trainer</h1>
     <p class="meta">Choose what you want to practice. <a href="/stats">View progress →</a> · <a href="/exercises">Browse exercises →</a></p>
 
+    <div id="daily-bar-section" style="margin-bottom:1.25rem;">
+      <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:#999; margin-bottom:4px;">
+        <span>Daily goal</span>
+        <span id="daily-label">—</span>
+      </div>
+      <div style="background:#eee; border-radius:8px; height:8px; overflow:hidden;">
+        <div id="daily-bar" style="height:100%; border-radius:8px; background:#1a1a1a; width:0%; transition:width 0.4s;"></div>
+      </div>
+    </div>
+
     <div class="type-list" id="type-list"></div>
 
     <button id="add-exercise-btn" onclick="goToAdd()">+ Add Exercise</button>
@@ -320,6 +330,7 @@
   function goToLanding() {
     showScreen("screen-landing");
     loadExerciseTypes();
+    loadDailyProgress();
   }
 
   function goToAdd() {
@@ -378,6 +389,21 @@
       opt.textContent = t.display_name;
       select.appendChild(opt);
     });
+  }
+
+  async function loadDailyProgress() {
+    const res  = await fetch("/api/daily-progress");
+    const data = await res.json();
+
+    const pct     = Math.min(100, Math.round((data.today / data.goal) * 100));
+    const reached = data.goal_reached;
+
+    document.getElementById("daily-bar").style.width      = pct + "%";
+    document.getElementById("daily-bar").style.background = reached ? "#2a7a4b" : "#1a1a1a";
+    document.getElementById("daily-label").textContent    =
+      reached
+        ? `${data.today}/${data.goal} ✓ Goal reached!`
+        : `${data.today}/${data.goal}`;
   }
 
   function toggleHint() {
@@ -542,6 +568,8 @@
 
     document.getElementById("check-btn").style.display = "none";
     document.getElementById("next-btn").style.display  = "inline-block";
+
+    loadDailyProgress();
   }
 
   function renderAddFields() {
@@ -621,6 +649,7 @@
   }
 
   loadExerciseTypes();
+  loadDailyProgress();
 </script>
 </body>
 </html>

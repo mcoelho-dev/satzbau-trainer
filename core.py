@@ -278,3 +278,88 @@ def delete_exercise(db_path: str, exercise_id: int) -> None:
     conn.execute("DELETE FROM exercises WHERE id = ?", (exercise_id,))
     conn.commit()
     conn.close()
+
+
+def get_setting(db_path: str, key: str, default: str = None) -> str | None:
+    conn = get_conn(db_path)
+    row = conn.execute(
+        "SELECT value FROM settings WHERE key = ?", (key,)
+    ).fetchone()
+    conn.close()
+    return row["value"] if row else default
+
+
+def set_setting(db_path: str, key: str, value: str) -> None:
+    conn = get_conn(db_path)
+    conn.execute(
+        "INSERT INTO settings (key, value) VALUES (?, ?) "
+        "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        (key, value)
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_daily_progress(db_path: str) -> dict:
+    conn = get_conn(db_path)
+
+    today = conn.execute(
+        "SELECT COUNT(*) AS count FROM attempts WHERE DATE(attempted_at) = DATE('now')"
+    ).fetchone()["count"]
+
+    goal = int(get_setting(db_path, "daily_goal", "20"))
+
+    streak = 0
+    offset = 0
+    while True:
+        row = conn.execute("""
+            SELECT COUNT(*) AS count FROM attempts
+            WHERE DATE(attempted_at) = DATE('now', ? || ' days')
+        """, (f"-{offset}",)).fetchone()
+        if row["count"] > 0:
+            streak += 1
+            offset += 1
+        else:
+            break
+
+    longest = conn.execute("""
+        WITH daily AS (
+            SELECT DATE(attempted_at) AS day
+            FROM attempts
+            GROUP BY DATE(attempted_at)
+        ),
+        numbered AS (
+            SELECT day,
+                   ROW_NUMBER() OVER (ORDER BY day) -
+                   JULIANDAY(day) AS grp
+            FROM daily
+        ),
+        streaks AS (
+            SELECT COUNT(*) AS len FROM numbered GROUP BY grp
+        )
+        SELECT COALESCE(MAX(len), 0) AS longest FROM streaks
+    """).fetchone()["longest"]
+
+    conn.close()
+
+    return {
+        "today":        today,
+        "goal":         goal,
+        "goal_reached": today >= goal,
+        "streak":       streak,
+        "longest":      longest,
+    }
+
+
+def get_heatmap_data(db_path: str) -> list[dict]:
+    conn = get_conn(db_path)
+    rows = conn.execute("""
+        SELECT
+            DATE(attempted_at) AS day,
+            COUNT(*) AS count
+        FROM attempts
+        GROUP BY DATE(attempted_at)
+        ORDER BY day
+    """).fetchall()
+    conn.close()
+    return [dict(row) for row in rows]

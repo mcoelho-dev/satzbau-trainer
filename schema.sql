@@ -32,3 +32,8 @@ CREATE TABLE attempts (
     attempted_at    TEXT DEFAULT (datetime('now')),
     FOREIGN KEY (exercise_id) REFERENCES exercises(id) ON DELETE CASCADE
 );
+
+CREATE TABLE IF NOT EXISTS settings (
+    key    TEXT PRIMARY KEY,
+    value  TEXT NOT NULL
+);
