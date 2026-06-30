@@ -64,6 +64,16 @@
     .type-btn:hover { background: #f0ede8; border-color: #ccc; }
     .type-btn .arrow { color: #999; }
 
+    .type-counts {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.8rem;
+    }
+
+    .count-new { color: #4455cc; font-weight: 600; }
+    .count-due { color: #2a7a4b; font-weight: 600; }
+
     #add-exercise-btn {
       width: 100%;
       background: #eef2ff;
@@ -236,7 +246,7 @@
   <!-- ════════════ LANDING SCREEN ════════════ -->
   <div id="screen-landing" class="screen active">
     <h1>Satzbau Trainer</h1>
-    <p class="meta">Choose what you want to practice. <a href="/stats">View progress →</a></p>
+    <p class="meta">Choose what you want to practice. <a href="/stats">View progress →</a> · <a href="/exercises">Browse exercises →</a></p>
 
     <div class="type-list" id="type-list"></div>
 
@@ -302,7 +312,6 @@
   let score   = 0;
   let total   = 0;
 
-  // ── Screen navigation ─────────────────────────────────────────
   function showScreen(id) {
     document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
     document.getElementById(id).classList.add("active");
@@ -310,6 +319,7 @@
 
   function goToLanding() {
     showScreen("screen-landing");
+    loadExerciseTypes();
   }
 
   function goToAdd() {
@@ -331,17 +341,31 @@
     loadExercise();
   }
 
-  // ── Landing screen ───────────────────────────────────────────
   async function loadExerciseTypes() {
-    const res = await fetch("/api/exercise-types");
-    exerciseTypes = await res.json();
+    const [typesRes, countsRes] = await Promise.all([
+      fetch("/api/exercise-types"),
+      fetch("/api/type-counts")
+    ]);
+    exerciseTypes = await typesRes.json();
+    const counts  = await countsRes.json();
+
+    const countMap = {};
+    counts.forEach(c => { countMap[c.key] = c; });
 
     const list = document.getElementById("type-list");
     list.innerHTML = "";
     exerciseTypes.forEach(t => {
+      const c = countMap[t.key] || { new_count: 0, due_count: 0 };
       const btn = document.createElement("button");
       btn.className = "type-btn";
-      btn.innerHTML = `<span>${t.display_name}</span><span class="arrow">→</span>`;
+      btn.innerHTML = `
+        <span>${t.display_name}</span>
+        <span class="type-counts">
+          <span class="count-new">${c.new_count} New</span>
+          <span class="count-due">${c.due_count} Due</span>
+          <span class="arrow">→</span>
+        </span>
+      `;
       btn.onclick = () => goToPractice(t.key);
       list.appendChild(btn);
     });
@@ -356,9 +380,8 @@
     });
   }
 
-  // ── Practice screen ──────────────────────────────────────────
   function toggleHint() {
-    const box = document.getElementById("hint-box");
+    const box  = document.getElementById("hint-box");
     const type = exerciseTypes.find(t => t.key === currentTypeKey);
     if (box.style.display === "block") {
       box.style.display = "none";
@@ -521,7 +544,6 @@
     document.getElementById("next-btn").style.display  = "inline-block";
   }
 
-  // ── Add screen ───────────────────────────────────────────────
   function renderAddFields() {
     const key  = document.getElementById("type-select").value;
     const type = exerciseTypes.find(t => t.key === key);
@@ -567,7 +589,7 @@
   }
 
   async function saveExercise() {
-    const key = document.getElementById("type-select").value;
+    const key    = document.getElementById("type-select").value;
     const inputs = document.querySelectorAll("#dynamic-fields [data-field-name]");
 
     const data = {};
@@ -586,7 +608,7 @@
     });
 
     const result = await res.json();
-    const fb = document.getElementById("add-feedback");
+    const fb     = document.getElementById("add-feedback");
 
     if (res.ok) {
       fb.textContent = "Exercise saved!";
@@ -598,7 +620,6 @@
     }
   }
 
-  // ── Init ─────────────────────────────────────────────────────
   loadExerciseTypes();
 </script>
 </body>

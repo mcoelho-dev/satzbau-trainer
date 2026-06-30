@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Satzbau Trainer — Exercises</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, sans-serif;
+      background: #f5f4f0;
+      color: #1a1a1a;
+      min-height: 100vh;
+      padding: 2rem 1rem;
+      display: flex;
+      justify-content: center;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 16px;
+      padding: 2rem;
+      width: 100%;
+      max-width: 720px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+      height: fit-content;
+    }
+
+    .page-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 0.25rem;
+    }
+
+    h1 { font-size: 1.25rem; font-weight: 600; }
+
+    .meta {
+      font-size: 0.8rem;
+      color: #888;
+      margin-bottom: 1.5rem;
+    }
+
+    .meta a { color: #4455cc; }
+
+    .filter-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 1.25rem;
+      flex-wrap: wrap;
+    }
+
+    .filter-btn {
+      padding: 4px 14px;
+      border-radius: 20px;
+      border: 1px solid #d0cec8;
+      background: #fff;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .filter-btn.active {
+      background: #1a1a1a;
+      color: #fff;
+      border-color: #1a1a1a;
+    }
+
+    .exercise-list { display: flex; flex-direction: column; gap: 6px; }
+
+    .exercise-row {
+      border: 1px solid #e5e2dc;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .exercise-summary {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.75rem 1rem;
+      cursor: pointer;
+      background: #faf9f6;
+      transition: background 0.15s;
+      gap: 10px;
+    }
+
+    .exercise-summary:hover { background: #f0ede8; }
+
+    .summary-left {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .summary-title {
+      font-size: 0.9rem;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .summary-meta {
+      font-size: 0.75rem;
+      color: #999;
+    }
+
+    .summary-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .type-badge {
+      font-size: 0.7rem;
+      padding: 2px 8px;
+      border-radius: 20px;
+      background: #eef2ff;
+      color: #4455cc;
+    }
+
+    .chevron {
+      color: #999;
+      font-size: 0.8rem;
+      transition: transform 0.2s;
+    }
+
+    .exercise-row.open .chevron { transform: rotate(90deg); }
+
+    .exercise-detail {
+      display: none;
+      padding: 1rem;
+      border-top: 1px solid #e5e2dc;
+      background: #fff;
+    }
+
+    .exercise-row.open .exercise-detail { display: block; }
+
+    .detail-field {
+      margin-bottom: 0.75rem;
+    }
+
+    .detail-label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #999;
+      margin-bottom: 0.25rem;
+    }
+
+    .detail-value {
+      font-size: 0.9rem;
+      padding: 0.4rem 0.6rem;
+      background: #f5f4f0;
+      border-radius: 6px;
+    }
+
+    .detail-input {
+      width: 100%;
+      font-size: 0.9rem;
+      padding: 0.4rem 0.6rem;
+      border: 1px solid #4455cc;
+      border-radius: 6px;
+      background: #fff;
+    }
+
+    .detail-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 1rem;
+    }
+
+    button {
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+      border: none;
+      font-size: 0.85rem;
+      cursor: pointer;
+      font-weight: 500;
+      transition: opacity 0.15s;
+    }
+
+    button:hover { opacity: 0.85; }
+
+    .btn-edit   { background: #1a1a1a; color: #fff; }
+    .btn-save   { background: #2a7a4b; color: #fff; }
+    .btn-cancel { background: #e8e5e0; color: #1a1a1a; }
+    .btn-delete { background: #fef2f2; color: #b94040; border: 1px solid #fca5a5; }
+
+    .empty-state {
+      color: #999;
+      font-size: 0.9rem;
+      text-align: center;
+      padding: 3rem 0;
+    }
+
+    .search-input {
+      width: 100%;
+      padding: 0.5rem 0.75rem;
+      border: 1px solid #d0cec8;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      margin-bottom: 1rem;
+    }
+  </style>
+</head>
+<body>
+<div class="card">
+  <div class="page-header">
+    <h1>Exercises</h1>
+    <a href="/" style="font-size:0.85rem; color:#666; text-decoration:none;">← Back</a>
+  </div>
+  <p class="meta" id="exercise-count">Loading...</p>
+
+  <input class="search-input" type="text" placeholder="Search exercises..." oninput="filterExercises()" id="search-input" />
+
+  <div class="filter-row" id="filter-row"></div>
+
+  <div class="exercise-list" id="exercise-list"></div>
+</div>
+
+<script>
+  let allExercises = [];
+  let activeType   = null;
+  let editingId    = null;
+
+  async function loadExercises() {
+    const res = await fetch("/api/exercises");
+    allExercises = await res.json();
+    buildFilters();
+    renderList();
+  }
+
+  function buildFilters() {
+    const types = [...new Set(allExercises.map(e => e.type_key))];
+    const typeNames = {};
+    allExercises.forEach(e => { typeNames[e.type_key] = e.type_name; });
+
+    const row = document.getElementById("filter-row");
+    row.innerHTML = "";
+
+    const allBtn = document.createElement("button");
+    allBtn.className = "filter-btn active";
+    allBtn.textContent = "All";
+    allBtn.onclick = () => setFilter(null, allBtn);
+    row.appendChild(allBtn);
+
+    types.forEach(key => {
+      const btn = document.createElement("button");
+      btn.className = "filter-btn";
+      btn.textContent = typeNames[key];
+      btn.onclick = () => setFilter(key, btn);
+      row.appendChild(btn);
+    });
+  }
+
+  function setFilter(typeKey, btn) {
+    activeType = typeKey;
+    document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    renderList();
+  }
+
+  function filterExercises() {
+    renderList();
+  }
+
+  function getDisplayTitle(exercise) {
+    const d = exercise.data;
+    if (exercise.type_key === "word_order")         return d.german_text || "—";
+    if (exercise.type_key === "gender")             return `${d.article} ${d.word}`;
+    if (exercise.type_key === "conjugation")        return `${d.infinitive} — ${d.pronoun} (${d.tense})`;
+    if (exercise.type_key === "plural")             return `${d.article} ${d.singular} → ${d.correct_plural}`;
+    if (exercise.type_key === "grammatical_case")   return d.sentence || "—";
+    if (exercise.type_key === "adjective_declension") return d.sentence || "—";
+    return JSON.stringify(d);
+  }
+
+  function renderList() {
+    const query = document.getElementById("search-input").value.toLowerCase();
+    const list  = document.getElementById("exercise-list");
+    list.innerHTML = "";
+
+    const filtered = allExercises.filter(e => {
+      const matchType  = !activeType || e.type_key === activeType;
+      const matchQuery = !query || getDisplayTitle(e).toLowerCase().includes(query) ||
+                         JSON.stringify(e.data).toLowerCase().includes(query);
+      return matchType && matchQuery;
+    });
+
+    document.getElementById("exercise-count").textContent =
+      `${filtered.length} exercise${filtered.length !== 1 ? "s" : ""}`;
+
+    if (filtered.length === 0) {
+      list.innerHTML = `<p class="empty-state">No exercises found.</p>`;
+      return;
+    }
+
+    filtered.forEach(exercise => {
+      const row = document.createElement("div");
+      row.className = "exercise-row";
+      row.id = `row-${exercise.id}`;
+
+      row.innerHTML = `
+        <div class="exercise-summary" onclick="toggleRow(${exercise.id})">
+          <div class="summary-left">
+            <span class="summary-title">${getDisplayTitle(exercise)}</span>
+            <span class="summary-meta">${exercise.pattern || ""}</span>
+          </div>
+          <div class="summary-right">
+            <span class="type-badge">${exercise.type_name}</span>
+            <span class="chevron">›</span>
+          </div>
+        </div>
+        <div class="exercise-detail" id="detail-${exercise.id}">
+          ${renderDetailFields(exercise, false)}
+          <div class="detail-actions">
+            <button class="btn-edit" onclick="startEdit(${exercise.id})">Edit</button>
+            <button class="btn-delete" onclick="confirmDelete(${exercise.id})">Delete</button>
+          </div>
+        </div>
+      `;
+
+      list.appendChild(row);
+    });
+  }
+
+  function renderDetailFields(exercise, editing) {
+    const d = exercise.data;
+    return Object.entries(d).map(([key, value]) => {
+      const label = key.replace(/_/g, " ");
+      const displayValue = Array.isArray(value) ? value.join(" / ") : value;
+      if (editing) {
+        return `
+          <div class="detail-field">
+            <div class="detail-label">${label}</div>
+            <input class="detail-input" data-key="${key}" value="${Array.isArray(value) ? value.join(" ") : value}" />
+          </div>
+        `;
+      }
+      return `
+        <div class="detail-field">
+          <div class="detail-label">${label}</div>
+          <div class="detail-value">${displayValue}</div>
+        </div>
+      `;
+    }).join("");
+  }
+
+  function toggleRow(id) {
+    const row = document.getElementById(`row-${id}`);
+    row.classList.toggle("open");
+  }
+
+  function startEdit(id) {
+    editingId = id;
+    const exercise = allExercises.find(e => e.id === id);
+    const detail   = document.getElementById(`detail-${id}`);
+
+    detail.innerHTML = `
+      ${renderDetailFields(exercise, true)}
+      <div class="detail-actions">
+        <button class="btn-save"   onclick="saveEdit(${id})">Save</button>
+        <button class="btn-cancel" onclick="cancelEdit(${id})">Cancel</button>
+        <button class="btn-delete" onclick="confirmDelete(${id})">Delete</button>
+      </div>
+    `;
+  }
+
+  function cancelEdit(id) {
+    const exercise = allExercises.find(e => e.id === id);
+    const detail   = document.getElementById(`detail-${id}`);
+    detail.innerHTML = `
+      ${renderDetailFields(exercise, false)}
+      <div class="detail-actions">
+        <button class="btn-edit"   onclick="startEdit(${id})">Edit</button>
+        <button class="btn-delete" onclick="confirmDelete(${id})">Delete</button>
+      </div>
+    `;
+  }
+
+  async function saveEdit(id) {
+    const exercise = allExercises.find(e => e.id === id);
+    const inputs   = document.querySelectorAll(`#detail-${id} .detail-input`);
+    const newData  = { ...exercise.data };
+
+    inputs.forEach(input => {
+      const key = input.dataset.key;
+      if (Array.isArray(exercise.data[key])) {
+        newData[key] = input.value.trim().split(/\s+/);
+      } else {
+        newData[key] = input.value;
+      }
+    });
+
+    const res = await fetch(`/api/exercises/${id}`, {
+      method:  "PUT",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ data: newData }),
+    });
+
+    if (res.ok) {
+      exercise.data = newData;
+      cancelEdit(id);
+      renderList();
+    }
+  }
+
+  async function confirmDelete(id) {
+    if (!confirm("Delete this exercise? This cannot be undone.")) return;
+
+    const res = await fetch(`/api/exercises/${id}`, { method: "DELETE" });
+    if (res.ok) {
+      allExercises = allExercises.filter(e => e.id !== id);
+      renderList();
+    }
+  }
+
+  loadExercises();
+</script>
+</body>
+</html>

@@ -1,9 +1,9 @@
 from flask import Flask, jsonify, render_template, request
 from core import (
-    get_random_exercise, get_exercise_by_id, shuffle_chunks,
+    get_weighted_exercise, get_exercise_by_id, shuffle_chunks,
     check_word_order_answer, check_text_answer, record_attempt,
     get_pattern_stats, get_overall_stats,
-    list_exercise_types, add_exercise
+    list_exercise_types, add_exercise, get_type_counts
 )
 
 app = Flask(__name__)
@@ -18,7 +18,7 @@ def index():
 @app.route("/api/exercise")
 def exercise():
     exercise_type = request.args.get("type", "word_order")
-    data = get_random_exercise(DB_PATH, exercise_type)
+    data = get_weighted_exercise(DB_PATH, exercise_type)
     if not data:
         return jsonify({"error": "No exercises found for this type"}), 404
 
@@ -116,6 +116,11 @@ def attempt():
 @app.route("/api/exercise-types")
 def exercise_types():
     return jsonify(list_exercise_types(DB_PATH))
+
+
+@app.route("/api/type-counts")
+def type_counts():
+    return jsonify(get_type_counts(DB_PATH))
 
 
 @app.route("/api/exercise", methods=["POST"])
