@@ -35,13 +35,94 @@
       margin-bottom: 1.5rem;
     }
 
+    .meta a { color: #4455cc; }
+
+    .screen { display: none; }
+    .screen.active { display: block; }
+
+    .type-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 1.5rem;
+    }
+
+    .type-btn {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1rem 1.25rem;
+      border-radius: 10px;
+      border: 1px solid #e5e2dc;
+      background: #faf9f6;
+      cursor: pointer;
+      font-size: 1rem;
+      text-align: left;
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    .type-btn:hover { background: #f0ede8; border-color: #ccc; }
+    .type-btn .arrow { color: #999; }
+
+    #add-exercise-btn {
+      width: 100%;
+      background: #eef2ff;
+      color: #4455cc;
+      padding: 0.75rem;
+    }
+
+    .practice-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+
+    .back-link {
+      font-size: 0.85rem;
+      color: #666;
+      text-decoration: none;
+      cursor: pointer;
+    }
+
+    .hint-btn {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: #eef2ff;
+      color: #4455cc;
+      border: none;
+      font-weight: 600;
+      font-size: 0.85rem;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .translation-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 1rem;
+    }
+
     .translation {
+      flex: 1;
       font-size: 1rem;
       color: #444;
-      margin-bottom: 1.25rem;
       padding: 0.75rem 1rem;
       background: #f5f4f0;
       border-radius: 8px;
+    }
+
+    #hint-box {
+      display: none;
+      background: #fffbe6;
+      border: 1px solid #f0e0a0;
+      border-radius: 8px;
+      padding: 0.7rem 1rem;
+      font-size: 0.85rem;
+      color: #7a6a30;
+      margin-bottom: 1.25rem;
     }
 
     .zone-label {
@@ -62,13 +143,8 @@
       margin-bottom: 1rem;
     }
 
-    #answer-zone {
-      border: 1.5px dashed #ccc;
-    }
-
-    #bank-zone {
-      background: #f5f4f0;
-    }
+    #answer-zone { border: 1.5px dashed #ccc; }
+    #bank-zone   { background: #f5f4f0; }
 
     .chip {
       padding: 6px 14px;
@@ -116,68 +192,207 @@
       margin-top: 1.25rem;
     }
 
-    .patterns {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      margin-bottom: 1.25rem;
-    }
-
     .pattern-tag {
+      display: inline-block;
       font-size: 0.75rem;
       padding: 3px 10px;
       border-radius: 20px;
       background: #eef2ff;
       color: #4455cc;
+      margin-bottom: 0.5rem;
     }
+
+    .empty-state {
+      color: #999;
+      font-size: 0.9rem;
+      text-align: center;
+      padding: 2rem 0;
+    }
+
+    .field-group { margin-bottom: 0.9rem; }
+
+    .field-label {
+      font-size: 0.8rem;
+      color: #666;
+      margin-bottom: 0.3rem;
+      display: block;
+    }
+
+    .field-input {
+      width: 100%;
+      padding: 0.5rem 0.7rem;
+      border: 1px solid #d0cec8;
+      border-radius: 8px;
+      font-size: 0.9rem;
+    }
+
+    #save-btn { background: #2a7a4b; color: #fff; }
+    #add-feedback { font-size: 0.85rem; margin-top: 0.6rem; }
   </style>
 </head>
 <body>
 <div class="card">
-  <h1>Satzbau Trainer</h1>
-  <p class="meta">Arrange the words in the correct German order. <a href="/stats" style="color:#4455cc;">View progress →</a></p>
 
-  <div class="translation" id="translation">Loading...</div>
+  <!-- ════════════ LANDING SCREEN ════════════ -->
+  <div id="screen-landing" class="screen active">
+    <h1>Satzbau Trainer</h1>
+    <p class="meta">Choose what you want to practice. <a href="/stats">View progress →</a></p>
 
-  <div class="patterns" id="patterns"></div>
+    <div class="type-list" id="type-list"></div>
 
-  <p class="zone-label">Your answer</p>
-  <div class="zone" id="answer-zone"></div>
-
-  <p class="zone-label">Word bank</p>
-  <div class="zone" id="bank-zone"></div>
-
-  <div id="feedback"></div>
-
-  <div class="actions">
-    <button id="check-btn" onclick="checkAnswer()">Check</button>
-    <button id="next-btn"  onclick="loadExercise()">Next →</button>
+    <button id="add-exercise-btn" onclick="goToAdd()">+ Add Exercise</button>
   </div>
 
-  <div class="score">Score: <span id="score">0</span> / <span id="total">0</span></div>
+  <!-- ════════════ PRACTICE SCREEN ════════════ -->
+  <div id="screen-practice" class="screen">
+    <div class="practice-header">
+      <a class="back-link" onclick="goToLanding()">← Back</a>
+      <button class="hint-btn" onclick="toggleHint()">?</button>
+    </div>
+
+    <div id="hint-box"></div>
+
+    <div class="translation-row">
+      <div class="translation" id="translation">Loading...</div>
+    </div>
+
+    <div id="pattern-tag-container"></div>
+
+    <div id="practice-body"></div>
+
+    <div id="feedback"></div>
+
+    <div class="actions">
+      <button id="check-btn" onclick="checkAnswer()">Check</button>
+      <button id="next-btn"  onclick="loadExercise()">Next →</button>
+    </div>
+
+    <div class="score">Score: <span id="score">0</span> / <span id="total">0</span></div>
+  </div>
+
+  <!-- ════════════ ADD SCREEN ════════════ -->
+  <div id="screen-add" class="screen">
+    <div class="practice-header">
+      <a class="back-link" onclick="goToLanding()">← Back</a>
+    </div>
+
+    <h1>Add Exercise</h1>
+    <p class="meta">Pick a type and fill in the details.</p>
+
+    <p class="zone-label">Exercise type</p>
+    <select id="type-select" class="field-input" onchange="renderAddFields()" style="margin-bottom:1.25rem;"></select>
+
+    <div id="dynamic-fields"></div>
+
+    <div class="actions" style="margin-top:1rem;">
+      <button id="save-btn" onclick="saveExercise()">Save</button>
+    </div>
+
+    <div id="add-feedback"></div>
+  </div>
+
 </div>
 
 <script>
+  let exerciseTypes  = [];
+  let currentTypeKey = null;
   let current = null;
   let answer  = [];
   let bank    = [];
   let score   = 0;
   let total   = 0;
 
+  // ── Screen navigation ─────────────────────────────────────────
+  function showScreen(id) {
+    document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
+    document.getElementById(id).classList.add("active");
+  }
+
+  function goToLanding() {
+    showScreen("screen-landing");
+  }
+
+  function goToAdd() {
+    showScreen("screen-add");
+    if (exerciseTypes.length === 0) {
+      loadExerciseTypes().then(renderAddFields);
+    } else {
+      renderAddFields();
+    }
+  }
+
+  function goToPractice(typeKey) {
+    currentTypeKey = typeKey;
+    score = 0;
+    total = 0;
+    document.getElementById("score").textContent = score;
+    document.getElementById("total").textContent = total;
+    showScreen("screen-practice");
+    loadExercise();
+  }
+
+  // ── Landing screen ───────────────────────────────────────────
+  async function loadExerciseTypes() {
+    const res = await fetch("/api/exercise-types");
+    exerciseTypes = await res.json();
+
+    const list = document.getElementById("type-list");
+    list.innerHTML = "";
+    exerciseTypes.forEach(t => {
+      const btn = document.createElement("button");
+      btn.className = "type-btn";
+      btn.innerHTML = `<span>${t.display_name}</span><span class="arrow">→</span>`;
+      btn.onclick = () => goToPractice(t.key);
+      list.appendChild(btn);
+    });
+
+    const select = document.getElementById("type-select");
+    select.innerHTML = "";
+    exerciseTypes.forEach(t => {
+      const opt = document.createElement("option");
+      opt.value = t.key;
+      opt.textContent = t.display_name;
+      select.appendChild(opt);
+    });
+  }
+
+  // ── Practice screen ──────────────────────────────────────────
+  function toggleHint() {
+    const box = document.getElementById("hint-box");
+    const type = exerciseTypes.find(t => t.key === currentTypeKey);
+    if (box.style.display === "block") {
+      box.style.display = "none";
+    } else {
+      box.textContent = type?.hint_text || "No hint available for this exercise type yet.";
+      box.style.display = "block";
+    }
+  }
+
   async function loadExercise() {
+    document.getElementById("hint-box").style.display = "none";
     document.getElementById("feedback").textContent = "";
     document.getElementById("check-btn").style.display = "inline-block";
     document.getElementById("next-btn").style.display  = "none";
 
-    const res  = await fetch("/api/exercise?type=word_order");
+    const res  = await fetch(`/api/exercise?type=${currentTypeKey}`);
     const data = await res.json();
+
+    if (!res.ok) {
+      document.getElementById("practice-body").innerHTML =
+        `<p class="empty-state">No exercises yet for this type. Add one to get started!</p>`;
+      document.getElementById("translation").textContent = "—";
+      document.getElementById("pattern-tag-container").innerHTML = "";
+      document.getElementById("check-btn").style.display = "none";
+      return;
+    }
+
     current = data;
     answer  = [];
-    bank    = [...data.chunks];
+    bank    = currentTypeKey === "word_order" ? [...data.chunks] : [];
 
-    document.getElementById("translation").textContent = data.translation;
+    document.getElementById("translation").textContent = data.translation || data.prompt;
 
-    const pContainer = document.getElementById("patterns");
+    const pContainer = document.getElementById("pattern-tag-container");
     pContainer.innerHTML = "";
     if (data.pattern) {
       const tag = document.createElement("span");
@@ -185,11 +400,59 @@
       tag.textContent = data.pattern;
       pContainer.appendChild(tag);
     }
+    if (data.sub) {
+      const subEl = document.createElement("p");
+      subEl.className = "meta";
+      subEl.style.marginBottom = "0";
+      subEl.textContent = data.sub;
+      pContainer.appendChild(subEl);
+    }
 
-    render();
+    renderPracticeBody();
+
+    if (currentTypeKey === "gender") {
+      document.getElementById("check-btn").style.display = "none";
+    }
   }
 
-  function render() {
+  function renderPracticeBody() {
+    const body = document.getElementById("practice-body");
+
+    if (currentTypeKey === "word_order") {
+      body.innerHTML = `
+        <p class="zone-label">Your answer</p>
+        <div class="zone" id="answer-zone"></div>
+        <p class="zone-label">Word bank</p>
+        <div class="zone" id="bank-zone"></div>
+      `;
+      renderChunks();
+      return;
+    }
+
+    if (currentTypeKey === "gender") {
+      body.innerHTML = `<div class="actions" id="option-buttons" style="flex-wrap:wrap;"></div>`;
+      const container = document.getElementById("option-buttons");
+      current.options.forEach(opt => {
+        const btn = document.createElement("button");
+        btn.textContent = opt;
+        btn.style.background = "#eef2ff";
+        btn.style.color = "#4455cc";
+        btn.onclick = () => submitAnswer(opt);
+        container.appendChild(btn);
+      });
+      return;
+    }
+
+    body.innerHTML = `
+      <p class="zone-label">Your answer</p>
+      <input type="text" id="text-answer" class="field-input" placeholder="Type your answer" />
+    `;
+    document.getElementById("text-answer").addEventListener("keydown", e => {
+      if (e.key === "Enter") checkAnswer();
+    });
+  }
+
+  function renderChunks() {
     const answerZone = document.getElementById("answer-zone");
     const bankZone   = document.getElementById("bank-zone");
     answerZone.innerHTML = "";
@@ -198,14 +461,14 @@
     answer.forEach((word, i) => {
       answerZone.appendChild(chip(word, () => {
         bank.push(answer.splice(i, 1)[0]);
-        render();
+        renderChunks();
       }));
     });
 
     bank.forEach((word, i) => {
       bankZone.appendChild(chip(word, () => {
         answer.push(bank.splice(i, 1)[0]);
-        render();
+        renderChunks();
       }));
     });
   }
@@ -219,13 +482,24 @@
   }
 
   async function checkAnswer() {
+    let userAnswer;
+    if (currentTypeKey === "word_order") {
+      userAnswer = answer;
+    } else {
+      const input = document.getElementById("text-answer");
+      userAnswer = input ? input.value : "";
+    }
+    await submitAnswer(userAnswer);
+  }
+
+  async function submitAnswer(userAnswer) {
     total++;
     document.getElementById("total").textContent = total;
 
     const res  = await fetch("/api/attempt", {
       method:  "POST",
       headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({ exercise_id: current.id, answer }),
+      body:    JSON.stringify({ exercise_id: current.id, answer: userAnswer }),
     });
     const data = await res.json();
 
@@ -236,7 +510,10 @@
       fb.textContent = "Correct!";
       fb.className   = "correct";
     } else {
-      fb.textContent = "Not quite. Correct order: " + data.correct_answer.join(" ");
+      const answerText = Array.isArray(data.correct_answer)
+        ? data.correct_answer.join(" ")
+        : data.correct_answer;
+      fb.textContent = "Not quite. Correct answer: " + answerText;
       fb.className   = "wrong";
     }
 
@@ -244,7 +521,85 @@
     document.getElementById("next-btn").style.display  = "inline-block";
   }
 
-  loadExercise();
+  // ── Add screen ───────────────────────────────────────────────
+  function renderAddFields() {
+    const key  = document.getElementById("type-select").value;
+    const type = exerciseTypes.find(t => t.key === key);
+    const container = document.getElementById("dynamic-fields");
+    container.innerHTML = "";
+
+    type.field_schema.fields.forEach(field => {
+      const group = document.createElement("div");
+      group.className = "field-group";
+
+      const label = document.createElement("label");
+      label.className = "field-label";
+      label.textContent = field.label;
+      group.appendChild(label);
+
+      let input;
+      if (field.type === "select") {
+        input = document.createElement("select");
+        input.className = "field-input";
+        field.options.forEach(opt => {
+          const o = document.createElement("option");
+          o.value = opt;
+          o.textContent = opt;
+          input.appendChild(o);
+        });
+      } else {
+        input = document.createElement("input");
+        input.className = "field-input";
+        input.type = "text";
+        if (field.type === "chunk_list") {
+          input.placeholder = "Type the full sentence — it will be split into chunks";
+        }
+      }
+      input.dataset.fieldName = field.name;
+      input.dataset.fieldType = field.type;
+      group.appendChild(input);
+      container.appendChild(group);
+    });
+  }
+
+  function autoSplitChunks(sentence) {
+    return sentence.trim().split(/\s+/);
+  }
+
+  async function saveExercise() {
+    const key = document.getElementById("type-select").value;
+    const inputs = document.querySelectorAll("#dynamic-fields [data-field-name]");
+
+    const data = {};
+    inputs.forEach(input => {
+      if (input.dataset.fieldType === "chunk_list") {
+        data[input.dataset.fieldName] = autoSplitChunks(input.value);
+      } else {
+        data[input.dataset.fieldName] = input.value;
+      }
+    });
+
+    const res = await fetch("/api/exercise", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ type: key, data: data }),
+    });
+
+    const result = await res.json();
+    const fb = document.getElementById("add-feedback");
+
+    if (res.ok) {
+      fb.textContent = "Exercise saved!";
+      fb.style.color = "#2a7a4b";
+      inputs.forEach(input => { if (input.tagName === "INPUT") input.value = ""; });
+    } else {
+      fb.textContent = "Error: " + result.error;
+      fb.style.color = "#b94040";
+    }
+  }
+
+  // ── Init ─────────────────────────────────────────────────────
+  loadExerciseTypes();
 </script>
 </body>
 </html>

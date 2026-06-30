@@ -1,7 +1,7 @@
 from flask import Flask, jsonify, render_template, request
 from core import (
     get_random_exercise, get_exercise_by_id, shuffle_chunks,
-    check_word_order_answer, record_attempt,
+    check_word_order_answer, check_text_answer, record_attempt,
     get_pattern_stats, get_overall_stats,
     list_exercise_types, add_exercise
 )
@@ -30,6 +30,47 @@ def exercise():
             "pattern":     data["pattern"],
         })
 
+    if exercise_type == "gender":
+        return jsonify({
+            "id":      data["id"],
+            "prompt":  data["word"],
+            "sub":     data["translation"],
+            "pattern": data["pattern"],
+            "options": ["der", "die", "das"],
+        })
+
+    if exercise_type == "conjugation":
+        return jsonify({
+            "id":      data["id"],
+            "prompt":  f'{data["infinitive"]} — {data["pronoun"]} ({data["tense"]})',
+            "sub":     None,
+            "pattern": data["pattern"],
+        })
+
+    if exercise_type == "plural":
+        return jsonify({
+            "id":      data["id"],
+            "prompt":  f'{data["article"]} {data["singular"]}',
+            "sub":     "Write the plural form",
+            "pattern": data["pattern"],
+        })
+
+    if exercise_type == "grammatical_case":
+        return jsonify({
+            "id":      data["id"],
+            "prompt":  data["sentence"],
+            "sub":     f'Decline: {data["word"]} ({data["case"]})',
+            "pattern": data["pattern"],
+        })
+
+    if exercise_type == "adjective_declension":
+        return jsonify({
+            "id":      data["id"],
+            "prompt":  data["sentence"],
+            "sub":     f'Decline: {data["adjective"]} ({data["case"]}, {data["gender"]})',
+            "pattern": data["pattern"],
+        })
+
     return jsonify({"error": "Exercise type not yet supported"}), 400
 
 
@@ -43,9 +84,24 @@ def attempt():
     if not exercise:
         return jsonify({"error": "Exercise not found"}), 404
 
-    if exercise["type_key"] == "word_order":
-        is_correct = check_word_order_answer(user_answer, exercise["chunks"])
-        correct_answer = exercise["chunks"]
+    type_key = exercise["type_key"]
+
+    if type_key == "word_order":
+        is_correct     = check_word_order_answer(user_answer, exercise["chunks"])
+        correct_answer = " ".join(exercise["chunks"])
+
+    elif type_key == "gender":
+        is_correct     = check_text_answer(user_answer, exercise["article"])
+        correct_answer = exercise["article"]
+
+    elif type_key in ("conjugation", "grammatical_case", "adjective_declension"):
+        is_correct     = check_text_answer(user_answer, exercise["correct_form"])
+        correct_answer = exercise["correct_form"]
+
+    elif type_key == "plural":
+        is_correct     = check_text_answer(user_answer, exercise["correct_plural"])
+        correct_answer = exercise["correct_plural"]
+
     else:
         return jsonify({"error": "Exercise type not yet supported"}), 400
 
