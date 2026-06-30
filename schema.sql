@@ -7,7 +7,7 @@ CREATE TABLE patterns (
 CREATE TABLE sentences (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
     german_text     TEXT NOT NULL,
-    translation_pt  TEXT NOT NULL,
+    translation  TEXT NOT NULL,
     created_at      TEXT DEFAULT (datetime('now'))
 );
 
