@@ -1,5 +1,9 @@
 from flask import Flask, jsonify, render_template, request
-from core import get_random_sentence, shuffle_chunks, check_answer, record_attempt, get_sentence_by_id
+from core import (
+    get_random_sentence, shuffle_chunks, check_answer,
+    record_attempt, get_sentence_by_id,
+    get_pattern_stats, get_overall_stats
+)
 
 app = Flask(__name__)
 DB_PATH = "app.db"
@@ -41,6 +45,19 @@ def attempt():
         "correct":        is_correct,
         "correct_chunks": correct,
     })
+
+
+@app.route("/api/stats")
+def stats():
+    return jsonify({
+        "overall":  get_overall_stats(DB_PATH),
+        "patterns": get_pattern_stats(DB_PATH),
+    })
+
+
+@app.route("/stats")
+def stats_page():
+    return render_template("stats.html")
 
 
 if __name__ == "__main__":

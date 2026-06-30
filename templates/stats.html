@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Satzbau Trainer — Stats</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, sans-serif;
+      background: #f5f4f0;
+      color: #1a1a1a;
+      min-height: 100vh;
+      padding: 2rem 1rem;
+      display: flex;
+      justify-content: center;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 16px;
+      padding: 2rem;
+      width: 100%;
+      max-width: 640px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    }
+
+    h1 { font-size: 1.25rem; font-weight: 600; margin-bottom: 0.25rem; }
+
+    .back {
+      display: inline-block;
+      margin-bottom: 1.5rem;
+      font-size: 0.85rem;
+      color: #666;
+      text-decoration: none;
+    }
+
+    .overall {
+      background: #f5f4f0;
+      border-radius: 10px;
+      padding: 1rem 1.25rem;
+      margin-bottom: 1.5rem;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .overall div { text-align: center; }
+    .overall .value { font-size: 1.4rem; font-weight: 600; }
+    .overall .label { font-size: 0.75rem; color: #888; margin-top: 2px; }
+
+    table { width: 100%; border-collapse: collapse; }
+
+    th, td {
+      text-align: left;
+      padding: 0.6rem 0.5rem;
+      font-size: 0.9rem;
+      border-bottom: 1px solid #eee;
+    }
+
+    th { font-size: 0.75rem; color: #999; text-transform: uppercase; }
+
+    .bar-bg {
+      background: #eee;
+      border-radius: 6px;
+      height: 8px;
+      width: 100%;
+      overflow: hidden;
+    }
+
+    .bar-fill { background: #1a1a1a; height: 100%; }
+
+    .empty { color: #999; font-size: 0.9rem; text-align: center; padding: 2rem 0; }
+  </style>
+</head>
+<body>
+<div class="card">
+  <a class="back" href="/">← Back to trainer</a>
+  <h1>Your progress</h1>
+
+  <div id="content">Loading...</div>
+</div>
+
+<script>
+  async function loadStats() {
+    const res  = await fetch("/api/stats");
+    const data = await res.json();
+    const content = document.getElementById("content");
+
+    if (data.overall.total_attempts === 0) {
+      content.innerHTML = '<p class="empty">No attempts yet — go practice some sentences!</p>';
+      return;
+    }
+
+    let html = `
+      <div class="overall">
+        <div><div class="value">${data.overall.total_attempts}</div><div class="label">Attempts</div></div>
+        <div><div class="value">${data.overall.correct_attempts}</div><div class="label">Correct</div></div>
+        <div><div class="value">${data.overall.accuracy}%</div><div class="label">Accuracy</div></div>
+      </div>
+      <table>
+        <thead>
+          <tr><th>Pattern</th><th>Accuracy</th><th>Attempts</th></tr>
+        </thead>
+        <tbody>
+    `;
+
+    data.patterns.forEach(p => {
+      html += `
+        <tr>
+          <td>${p.pattern}</td>
+          <td>
+            <div class="bar-bg"><div class="bar-fill" style="width:${p.accuracy}%"></div></div>
+          </td>
+          <td>${p.correct_attempts}/${p.total_attempts}</td>
+        </tr>
+      `;
+    });
+
+    html += "</tbody></table>";
+    content.innerHTML = html;
+  }
+
+  loadStats();
+</script>
+</body>
+</html>

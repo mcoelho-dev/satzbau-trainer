@@ -94,3 +94,47 @@ def get_sentence_by_id(db_path: str, sentence_id: int) -> dict | None:
         "translation": sentence["translation"],
         "chunks":      chunks,
     }
+
+
+def get_pattern_stats(db_path: str) -> list[dict]:
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT
+            p.name AS pattern,
+            COUNT(a.id) AS total_attempts,
+            SUM(a.is_correct) AS correct_attempts,
+            ROUND(100.0 * SUM(a.is_correct) / COUNT(a.id), 1) AS accuracy
+        FROM attempts a
+        JOIN sentences s ON s.id = a.sentence_id
+        JOIN sentence_patterns sp ON sp.sentence_id = s.id
+        JOIN patterns p ON p.id = sp.pattern_id
+        GROUP BY p.name
+        ORDER BY accuracy ASC
+    """)
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
+
+
+def get_overall_stats(db_path: str) -> dict:
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT
+            COUNT(*) AS total_attempts,
+            SUM(is_correct) AS correct_attempts,
+            ROUND(100.0 * SUM(is_correct) / COUNT(*), 1) AS accuracy
+        FROM attempts
+    """)
+    row = cursor.fetchone()
+    conn.close()
+
+    if row["total_attempts"] == 0:
+        return {"total_attempts": 0, "correct_attempts": 0, "accuracy": 0}
+
+    return dict(row)
