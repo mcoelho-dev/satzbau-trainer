@@ -151,7 +151,7 @@
 
   <div class="actions">
     <button id="check-btn" onclick="checkAnswer()">Check</button>
-    <button id="next-btn"  onclick="loadSentence()">Next →</button>
+    <button id="next-btn"  onclick="loadExercise()">Next →</button>
   </div>
 
   <div class="score">Score: <span id="score">0</span> / <span id="total">0</span></div>
@@ -164,12 +164,12 @@
   let score   = 0;
   let total   = 0;
 
-  async function loadSentence() {
+  async function loadExercise() {
     document.getElementById("feedback").textContent = "";
     document.getElementById("check-btn").style.display = "inline-block";
     document.getElementById("next-btn").style.display  = "none";
 
-    const res  = await fetch("/api/sentence");
+    const res  = await fetch("/api/exercise?type=word_order");
     const data = await res.json();
     current = data;
     answer  = [];
@@ -179,12 +179,12 @@
 
     const pContainer = document.getElementById("patterns");
     pContainer.innerHTML = "";
-    data.patterns.forEach(p => {
+    if (data.pattern) {
       const tag = document.createElement("span");
       tag.className   = "pattern-tag";
-      tag.textContent = p;
+      tag.textContent = data.pattern;
       pContainer.appendChild(tag);
-    });
+    }
 
     render();
   }
@@ -225,7 +225,7 @@
     const res  = await fetch("/api/attempt", {
       method:  "POST",
       headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({ sentence_id: current.id, answer }),
+      body:    JSON.stringify({ exercise_id: current.id, answer }),
     });
     const data = await res.json();
 
@@ -236,7 +236,7 @@
       fb.textContent = "Correct!";
       fb.className   = "correct";
     } else {
-      fb.textContent = "Not quite. Correct order: " + data.correct_chunks.join(" ");
+      fb.textContent = "Not quite. Correct order: " + data.correct_answer.join(" ");
       fb.className   = "wrong";
     }
 
@@ -244,7 +244,7 @@
     document.getElementById("next-btn").style.display  = "inline-block";
   }
 
-  loadSentence();
+  loadExercise();
 </script>
 </body>
 </html>

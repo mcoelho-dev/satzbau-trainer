@@ -1,37 +1,34 @@
-CREATE TABLE patterns (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    name        TEXT NOT NULL UNIQUE,
-    description TEXT
-);
-
-CREATE TABLE sentences (
+CREATE TABLE exercise_types (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
-    german_text     TEXT NOT NULL,
-    translation  TEXT NOT NULL,
-    created_at      TEXT DEFAULT (datetime('now'))
+    key             TEXT NOT NULL UNIQUE,
+    display_name    TEXT NOT NULL,
+    hint_text       TEXT,
+    field_schema    TEXT NOT NULL
 );
 
-CREATE TABLE sentence_patterns (
-    sentence_id  INTEGER NOT NULL,
-    pattern_id   INTEGER NOT NULL,
-    PRIMARY KEY (sentence_id, pattern_id),
-    FOREIGN KEY (sentence_id) REFERENCES sentences(id) ON DELETE CASCADE,
-    FOREIGN KEY (pattern_id)  REFERENCES patterns(id)  ON DELETE CASCADE
+CREATE TABLE patterns (
+    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    exercise_type_id  INTEGER NOT NULL,
+    name              TEXT NOT NULL,
+    description       TEXT,
+    FOREIGN KEY (exercise_type_id) REFERENCES exercise_types(id) ON DELETE CASCADE,
+    UNIQUE (exercise_type_id, name)
 );
 
-CREATE TABLE chunks (
-    id           INTEGER PRIMARY KEY AUTOINCREMENT,
-    sentence_id  INTEGER NOT NULL,
-    position     INTEGER NOT NULL,
-    text         TEXT NOT NULL,
-    FOREIGN KEY (sentence_id) REFERENCES sentences(id) ON DELETE CASCADE,
-    UNIQUE (sentence_id, position)
+CREATE TABLE exercises (
+    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    exercise_type_id  INTEGER NOT NULL,
+    pattern_id        INTEGER,
+    data_json         TEXT NOT NULL,
+    created_at        TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (exercise_type_id) REFERENCES exercise_types(id) ON DELETE CASCADE,
+    FOREIGN KEY (pattern_id) REFERENCES patterns(id) ON DELETE SET NULL
 );
 
 CREATE TABLE attempts (
-    id           INTEGER PRIMARY KEY AUTOINCREMENT,
-    sentence_id  INTEGER NOT NULL,
-    is_correct   INTEGER NOT NULL CHECK (is_correct IN (0, 1)),
-    attempted_at TEXT DEFAULT (datetime('now')),
-    FOREIGN KEY (sentence_id) REFERENCES sentences(id) ON DELETE CASCADE
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    exercise_id     INTEGER NOT NULL,
+    is_correct      INTEGER NOT NULL CHECK (is_correct IN (0, 1)),
+    attempted_at    TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (exercise_id) REFERENCES exercises(id) ON DELETE CASCADE
 );

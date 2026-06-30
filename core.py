@@ -1,137 +1,189 @@
 import sqlite3
+import json
 import random
 
 
-def get_random_sentence(db_path: str) -> dict | None:
+def get_conn(db_path):
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
+    conn.execute("PRAGMA foreign_keys = ON")
+    return conn
 
-    cursor.execute("""
-        SELECT s.id, s.german_text, s.translation
-        FROM sentences s
-        ORDER BY RANDOM()
-        LIMIT 1
-    """)
-    sentence = cursor.fetchone()
 
-    if not sentence:
-        conn.close()
-        return None
-
-    cursor.execute("""
-        SELECT text FROM chunks
-        WHERE sentence_id = ?
-        ORDER BY position
-    """, (sentence["id"],))
-    chunks = [row["text"] for row in cursor.fetchall()]
-
-    cursor.execute("""
-        SELECT p.name FROM patterns p
-        JOIN sentence_patterns sp ON sp.pattern_id = p.id
-        WHERE sp.sentence_id = ?
-    """, (sentence["id"],))
-    patterns = [row["name"] for row in cursor.fetchall()]
-
+def get_exercise_type(db_path, key):
+    conn = get_conn(db_path)
+    row = conn.execute(
+        "SELECT id, key, display_name, hint_text, field_schema FROM exercise_types WHERE key = ?",
+        (key,)
+    ).fetchone()
     conn.close()
-
+    if not row:
+        return None
     return {
-        "id": sentence["id"],
-        "german_text": sentence["german_text"],
-        "translation": sentence["translation"],
-        "chunks": chunks,
-        "patterns": patterns,
+        "id": row["id"],
+        "key": row["key"],
+        "display_name": row["display_name"],
+        "hint_text": row["hint_text"],
+        "field_schema": json.loads(row["field_schema"]),
     }
 
 
-def shuffle_chunks(chunks: list[str]) -> list[str]:
+def list_exercise_types(db_path):
+    conn = get_conn(db_path)
+    rows = conn.execute(
+        "SELECT id, key, display_name, hint_text, field_schema FROM exercise_types"
+    ).fetchall()
+    conn.close()
+    return [
+        {
+            "id": r["id"],
+            "key": r["key"],
+            "display_name": r["display_name"],
+            "hint_text": r["hint_text"],
+            "field_schema": json.loads(r["field_schema"]),
+        }
+        for r in rows
+    ]
+
+
+def get_random_exercise(db_path, exercise_type_key):
+    conn = get_conn(db_path)
+
+    type_row = conn.execute(
+        "SELECT id FROM exercise_types WHERE key = ?", (exercise_type_key,)
+    ).fetchone()
+    if not type_row:
+        conn.close()
+        return None
+
+    row = conn.execute("""
+        SELECT e.id, e.data_json, p.name AS pattern_name
+        FROM exercises e
+        LEFT JOIN patterns p ON p.id = e.pattern_id
+        WHERE e.exercise_type_id = ?
+        ORDER BY RANDOM()
+        LIMIT 1
+    """, (type_row["id"],)).fetchone()
+
+    conn.close()
+
+    if not row:
+        return None
+
+    data = json.loads(row["data_json"])
+    data["id"] = row["id"]
+    data["pattern"] = row["pattern_name"]
+    return data
+
+
+def get_exercise_by_id(db_path, exercise_id):
+    conn = get_conn(db_path)
+    row = conn.execute("""
+        SELECT e.id, e.data_json, et.key AS type_key, p.name AS pattern_name
+        FROM exercises e
+        JOIN exercise_types et ON et.id = e.exercise_type_id
+        LEFT JOIN patterns p ON p.id = e.pattern_id
+        WHERE e.id = ?
+    """, (exercise_id,)).fetchone()
+    conn.close()
+
+    if not row:
+        return None
+
+    data = json.loads(row["data_json"])
+    data["id"] = row["id"]
+    data["type_key"] = row["type_key"]
+    data["pattern"] = row["pattern_name"]
+    return data
+
+
+def shuffle_chunks(chunks):
     shuffled = chunks[:]
     while shuffled == chunks:
         random.shuffle(shuffled)
     return shuffled
 
 
-def check_answer(user_answer: list[str], correct_chunks: list[str]) -> bool:
+def check_word_order_answer(user_answer, correct_chunks):
     return user_answer == correct_chunks
 
 
-def record_attempt(db_path: str, sentence_id: int, is_correct: bool) -> None:
-    conn = sqlite3.connect(db_path)
-    conn.execute("""
-        INSERT INTO attempts (sentence_id, is_correct)
-        VALUES (?, ?)
-    """, (sentence_id, 1 if is_correct else 0))
+def check_text_answer(user_answer, correct_answer):
+    return user_answer.strip().lower() == correct_answer.strip().lower()
+
+
+def record_attempt(db_path, exercise_id, is_correct):
+    conn = get_conn(db_path)
+    conn.execute(
+        "INSERT INTO attempts (exercise_id, is_correct) VALUES (?, ?)",
+        (exercise_id, 1 if is_correct else 0)
+    )
     conn.commit()
     conn.close()
 
 
-def get_sentence_by_id(db_path: str, sentence_id: int) -> dict | None:
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
+def add_exercise(db_path, exercise_type_key, data, pattern_name=None):
+    conn = get_conn(db_path)
 
-    cursor.execute("""
-        SELECT id, german_text, translation
-        FROM sentences WHERE id = ?
-    """, (sentence_id,))
-    sentence = cursor.fetchone()
-
-    if not sentence:
+    type_row = conn.execute(
+        "SELECT id FROM exercise_types WHERE key = ?", (exercise_type_key,)
+    ).fetchone()
+    if not type_row:
         conn.close()
-        return None
+        raise ValueError(f"Unknown exercise type: {exercise_type_key}")
 
-    cursor.execute("""
-        SELECT text FROM chunks
-        WHERE sentence_id = ?
-        ORDER BY position
-    """, (sentence["id"],))
-    chunks = [row["text"] for row in cursor.fetchall()]
+    pattern_id = None
+    if pattern_name:
+        pattern_row = conn.execute(
+            "SELECT id FROM patterns WHERE exercise_type_id = ? AND name = ?",
+            (type_row["id"], pattern_name)
+        ).fetchone()
+        if pattern_row:
+            pattern_id = pattern_row["id"]
+        else:
+            cursor = conn.execute(
+                "INSERT INTO patterns (exercise_type_id, name) VALUES (?, ?)",
+                (type_row["id"], pattern_name)
+            )
+            pattern_id = cursor.lastrowid
 
+    conn.execute(
+        "INSERT INTO exercises (exercise_type_id, pattern_id, data_json) VALUES (?, ?, ?)",
+        (type_row["id"], pattern_id, json.dumps(data))
+    )
+    conn.commit()
     conn.close()
-    return {
-        "id":          sentence["id"],
-        "german_text": sentence["german_text"],
-        "translation": sentence["translation"],
-        "chunks":      chunks,
-    }
 
 
-def get_pattern_stats(db_path: str) -> list[dict]:
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-
-    cursor.execute("""
+def get_pattern_stats(db_path):
+    conn = get_conn(db_path)
+    rows = conn.execute("""
         SELECT
+            et.display_name AS exercise_type,
             p.name AS pattern,
             COUNT(a.id) AS total_attempts,
             SUM(a.is_correct) AS correct_attempts,
             ROUND(100.0 * SUM(a.is_correct) / COUNT(a.id), 1) AS accuracy
         FROM attempts a
-        JOIN sentences s ON s.id = a.sentence_id
-        JOIN sentence_patterns sp ON sp.sentence_id = s.id
-        JOIN patterns p ON p.id = sp.pattern_id
-        GROUP BY p.name
+        JOIN exercises e ON e.id = a.exercise_id
+        JOIN exercise_types et ON et.id = e.exercise_type_id
+        LEFT JOIN patterns p ON p.id = e.pattern_id
+        GROUP BY et.display_name, p.name
         ORDER BY accuracy ASC
-    """)
-    rows = cursor.fetchall()
+    """).fetchall()
     conn.close()
     return [dict(row) for row in rows]
 
 
-def get_overall_stats(db_path: str) -> dict:
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-
-    cursor.execute("""
+def get_overall_stats(db_path):
+    conn = get_conn(db_path)
+    row = conn.execute("""
         SELECT
             COUNT(*) AS total_attempts,
             SUM(is_correct) AS correct_attempts,
             ROUND(100.0 * SUM(is_correct) / COUNT(*), 1) AS accuracy
         FROM attempts
-    """)
-    row = cursor.fetchone()
+    """).fetchone()
     conn.close()
 
     if row["total_attempts"] == 0:
