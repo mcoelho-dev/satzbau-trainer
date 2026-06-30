@@ -8,7 +8,7 @@ def get_random_sentence(db_path: str) -> dict | None:
     cursor = conn.cursor()
 
     cursor.execute("""
-        SELECT s.id, s.german_text, s.translation_pt
+        SELECT s.id, s.german_text, s.translation
         FROM sentences s
         ORDER BY RANDOM()
         LIMIT 1
@@ -38,7 +38,7 @@ def get_random_sentence(db_path: str) -> dict | None:
     return {
         "id": sentence["id"],
         "german_text": sentence["german_text"],
-        "translation_pt": sentence["translation_pt"],
+        "translation": sentence["translation"],
         "chunks": chunks,
         "patterns": patterns,
     }
@@ -63,3 +63,34 @@ def record_attempt(db_path: str, sentence_id: int, is_correct: bool) -> None:
     """, (sentence_id, 1 if is_correct else 0))
     conn.commit()
     conn.close()
+
+
+def get_sentence_by_id(db_path: str, sentence_id: int) -> dict | None:
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT id, german_text, translation
+        FROM sentences WHERE id = ?
+    """, (sentence_id,))
+    sentence = cursor.fetchone()
+
+    if not sentence:
+        conn.close()
+        return None
+
+    cursor.execute("""
+        SELECT text FROM chunks
+        WHERE sentence_id = ?
+        ORDER BY position
+    """, (sentence["id"],))
+    chunks = [row["text"] for row in cursor.fetchall()]
+
+    conn.close()
+    return {
+        "id":          sentence["id"],
+        "german_text": sentence["german_text"],
+        "translation": sentence["translation"],
+        "chunks":      chunks,
+    }

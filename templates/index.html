@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Satzbau Trainer</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, sans-serif;
+      background: #f5f4f0;
+      color: #1a1a1a;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 16px;
+      padding: 2rem;
+      width: 100%;
+      max-width: 640px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    }
+
+    h1 { font-size: 1.25rem; font-weight: 600; margin-bottom: 0.25rem; }
+
+    .meta {
+      font-size: 0.8rem;
+      color: #888;
+      margin-bottom: 1.5rem;
+    }
+
+    .translation {
+      font-size: 1rem;
+      color: #444;
+      margin-bottom: 1.25rem;
+      padding: 0.75rem 1rem;
+      background: #f5f4f0;
+      border-radius: 8px;
+    }
+
+    .zone-label {
+      font-size: 0.75rem;
+      color: #999;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.4rem;
+    }
+
+    .zone {
+      min-height: 52px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 10px;
+      border-radius: 10px;
+      margin-bottom: 1rem;
+    }
+
+    #answer-zone {
+      border: 1.5px dashed #ccc;
+    }
+
+    #bank-zone {
+      background: #f5f4f0;
+    }
+
+    .chip {
+      padding: 6px 14px;
+      border-radius: 8px;
+      border: 1.5px solid #d0cec8;
+      background: #fff;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    .chip:hover { background: #f0ede8; border-color: #aaa; }
+
+    #feedback {
+      min-height: 24px;
+      font-size: 0.9rem;
+      margin-bottom: 1rem;
+      font-weight: 500;
+    }
+
+    .correct { color: #2a7a4b; }
+    .wrong   { color: #b94040; }
+
+    .actions { display: flex; gap: 0.75rem; }
+
+    button {
+      padding: 0.6rem 1.25rem;
+      border-radius: 8px;
+      border: none;
+      font-size: 0.95rem;
+      cursor: pointer;
+      font-weight: 500;
+      transition: opacity 0.15s;
+    }
+
+    button:hover { opacity: 0.85; }
+
+    #check-btn { background: #1a1a1a; color: #fff; }
+    #next-btn  { background: #e8e5e0; color: #1a1a1a; display: none; }
+
+    .score {
+      font-size: 0.8rem;
+      color: #999;
+      text-align: right;
+      margin-top: 1.25rem;
+    }
+
+    .patterns {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 1.25rem;
+    }
+
+    .pattern-tag {
+      font-size: 0.75rem;
+      padding: 3px 10px;
+      border-radius: 20px;
+      background: #eef2ff;
+      color: #4455cc;
+    }
+  </style>
+</head>
+<body>
+<div class="card">
+  <h1>Satzbau Trainer</h1>
+  <p class="meta">Arrange the words in the correct German order.</p>
+
+  <div class="translation" id="translation">Loading...</div>
+
+  <div class="patterns" id="patterns"></div>
+
+  <p class="zone-label">Your answer</p>
+  <div class="zone" id="answer-zone"></div>
+
+  <p class="zone-label">Word bank</p>
+  <div class="zone" id="bank-zone"></div>
+
+  <div id="feedback"></div>
+
+  <div class="actions">
+    <button id="check-btn" onclick="checkAnswer()">Check</button>
+    <button id="next-btn"  onclick="loadSentence()">Next →</button>
+  </div>
+
+  <div class="score">Score: <span id="score">0</span> / <span id="total">0</span></div>
+</div>
+
+<script>
+  let current = null;
+  let answer  = [];
+  let bank    = [];
+  let score   = 0;
+  let total   = 0;
+
+  async function loadSentence() {
+    document.getElementById("feedback").textContent = "";
+    document.getElementById("check-btn").style.display = "inline-block";
+    document.getElementById("next-btn").style.display  = "none";
+
+    const res  = await fetch("/api/sentence");
+    const data = await res.json();
+    current = data;
+    answer  = [];
+    bank    = [...data.chunks];
+
+    document.getElementById("translation").textContent = data.translation;
+
+    const pContainer = document.getElementById("patterns");
+    pContainer.innerHTML = "";
+    data.patterns.forEach(p => {
+      const tag = document.createElement("span");
+      tag.className   = "pattern-tag";
+      tag.textContent = p;
+      pContainer.appendChild(tag);
+    });
+
+    render();
+  }
+
+  function render() {
+    const answerZone = document.getElementById("answer-zone");
+    const bankZone   = document.getElementById("bank-zone");
+    answerZone.innerHTML = "";
+    bankZone.innerHTML   = "";
+
+    answer.forEach((word, i) => {
+      answerZone.appendChild(chip(word, () => {
+        bank.push(answer.splice(i, 1)[0]);
+        render();
+      }));
+    });
+
+    bank.forEach((word, i) => {
+      bankZone.appendChild(chip(word, () => {
+        answer.push(bank.splice(i, 1)[0]);
+        render();
+      }));
+    });
+  }
+
+  function chip(text, onClick) {
+    const btn = document.createElement("button");
+    btn.className   = "chip";
+    btn.textContent = text;
+    btn.onclick     = onClick;
+    return btn;
+  }
+
+  async function checkAnswer() {
+    total++;
+    document.getElementById("total").textContent = total;
+
+    const res  = await fetch("/api/attempt", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ sentence_id: current.id, answer }),
+    });
+    const data = await res.json();
+
+    const fb = document.getElementById("feedback");
+    if (data.correct) {
+      score++;
+      document.getElementById("score").textContent = score;
+      fb.textContent = "Correct!";
+      fb.className   = "correct";
+    } else {
+      fb.textContent = "Not quite. Correct order: " + data.correct_chunks.join(" ");
+      fb.className   = "wrong";
+    }
+
+    document.getElementById("check-btn").style.display = "none";
+    document.getElementById("next-btn").style.display  = "inline-block";
+  }
+
+  loadSentence();
+</script>
+</body>
+</html>
