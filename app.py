@@ -7,7 +7,17 @@ from core import (
 )
 
 app = Flask(__name__)
-DB_PATH = "app.db"
+import os
+import sys
+
+def get_db_path():
+    if getattr(sys, 'frozen', False):
+        base = os.path.dirname(sys.executable)
+    else:
+        base = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(base, "app.db")
+
+DB_PATH = get_db_path()
 
 
 @app.route("/")
